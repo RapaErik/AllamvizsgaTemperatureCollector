@@ -164,19 +164,21 @@ void loop() {
               Serial.println(" *F");
             }
             
-    delay(60000);
+  
         
     
     if(isnan(t)){
       sprintf (msg, "NaN");
     }else{
-      int homerseklet = (int)((t)*100);;
-      sprintf (msg, "%i.%i", homerseklet/100, (homerseklet%100) );
+      int homerseklet = (int)((t)*100);
+      int nedv = (int)((h)*100);
+      sprintf (msg, "%i.%i %i.%i", homerseklet/100, (homerseklet%100),nedv/100, (nedv%100));
+      //sprintf (msg, "%i.%i", homerseklet/100, nedv/100);
     }
     Serial.print("Publish message: ");
     Serial.println(msg);
     client.publish("/home/temperature", msg);
-  
+    delay(1000);
 }
 
 /*
