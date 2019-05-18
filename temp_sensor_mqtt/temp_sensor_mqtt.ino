@@ -9,11 +9,15 @@
 volatile int t=0;
 volatile unsigned long int lastisr=0;
 volatile unsigned char timerStateMachine=0;
+volatile unsigned int heaterCounterValue=0;
 ICACHE_RAM_ATTR void IntCallback()  {
   if(lastisr+5 < millis()){
     lastisr = millis();
     timerStateMachine=0;
-    timer1_write(12500);//max 500000--> ez megfelel 10ms
+    if(heaterCounterValue !=0)
+    {
+      timer1_write(heaterCounterValue);//max 50000--> ez megfelel 10ms
+    }
   }
   if(lastisr>millis()+6)
   {
@@ -26,15 +30,50 @@ ICACHE_RAM_ATTR void onTimerISR()  {
   {
     digitalWrite(14, 1);
     timerStateMachine++;
-    timer1_write(500);
+    timer1_write(1000);
     return;
   }
   if(timerStateMachine==1)
   {
     digitalWrite(14, 0);
   }
- 
+}
+void callback(char* topic, byte* payload, unsigned int length) {
+
+  int precent;
+  if(!strcmp(topic,"/home/heatspeed"))
+  {
+   
+    char* c= (char*)malloc(sizeof(char)*(length+1));
+    for (int i = 0; i < length; i++) {
+      c[i]=(char)payload[i];
+    }
+    c[length]='\0';
+    sscanf(c,"%i",&precent);
+    free(c);
+   /* Serial.println("-----------------------------");
+    Serial.println(topic);
+    Serial.println(precent);
+    Serial.println("-----------------------------");*/
+    change_heating_speed(precent);
+  }
+}
+void change_heating_speed(int precent)
+{
+  if(precent>100) precent=100;
+  if(precent<0) precent=0;
+  if(precent==0)
+  {
+    heaterCounterValue=0;
+  }
+  else
+  {
+    //heaterCounterValue=49000-(4800*precent)/100;
+    heaterCounterValue=49000-(480*precent);
   
+  }
+  Serial.print("HS===");
+  Serial.println(heaterCounterValue);
 }
 
 
@@ -49,6 +88,8 @@ DHT dht(DHTPin, DHTTYPE);
 const char* ssid = "Erikovszki";//WIFI azonosito
 const char* password = "1werwerwer";//WIFI jelszo
 const char* mqtt_server = "192.168.43.42"; //Raspbery IP cime
+
+
 
 // Temporary variables
 static char celsiusTemp[7];
@@ -88,25 +129,6 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is acive low on the ESP-01)
-  } else {
-    digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-  }
-
-}
 
 void reconnect() {
   // Loop until we're reconnected
@@ -118,10 +140,8 @@ void reconnect() {
     // Attempt to connect
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
-      // Once connected, publish an announcement...
-      client.publish("outTopic", "hello world");
-      // ... and resubscribe
-      client.subscribe("inTopic");
+
+      client.subscribe("/home/heatspeed");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -145,6 +165,7 @@ void setup() {
   dht.begin();
   setup_wifi();
   client.setServer(mqtt_server, 1883);
+  
   client.setCallback(callback);
 }
 
@@ -153,7 +174,7 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  client.loop();
+ 
 
 
             // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
@@ -164,7 +185,7 @@ void loop() {
             float f = dht.readTemperature(true);
             // Check if any reads failed and exit early (to try again).
             if (isnan(h) || isnan(t) || isnan(f)) {
-              Serial.println("Failed to read from DHT sensor!");
+           /*   Serial.println("Failed to read from DHT sensor!");*/
               strcpy(celsiusTemp,"Failed");
               strcpy(fahrenheitTemp, "Failed");
               strcpy(humidityTemp, "Failed");         
@@ -177,7 +198,7 @@ void loop() {
               dtostrf(hif, 6, 2, fahrenheitTemp);         
               dtostrf(h, 6, 2, humidityTemp);
               // You can delete the following Serial.print's, it's just for debugging purposes
-              Serial.print("Humidity: ");
+           /*   Serial.print("Humidity: ");
               Serial.print(h);
               Serial.print(" %\t Temperature: ");
               Serial.print(t);
@@ -198,7 +219,7 @@ void loop() {
               Serial.print(hic);
               Serial.print(" *C ");
               Serial.print(hif);
-              Serial.println(" *F");
+              Serial.println(" *F");*/
             }
             
   
@@ -212,8 +233,11 @@ void loop() {
       sprintf (msg, "%i.%i %i.%i", homerseklet/100, (homerseklet%100),nedv/100, (nedv%100));
       //sprintf (msg, "%i.%i", homerseklet/100, nedv/100);
     }
-    Serial.print("Publish message: ");
-    Serial.println(msg);
+ /*   Serial.print("Publish message: ");
+    Serial.println(msg);*/
     client.publish("/home/temperature", msg);
-    delay(1000);
+    for(int i =0; i< 500; i++){
+      client.loop();
+      delay(10);
+    }
 }
