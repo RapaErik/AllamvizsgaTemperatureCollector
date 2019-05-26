@@ -11,6 +11,7 @@ volatile unsigned long int lastisr=0;
 volatile unsigned char timerStateMachine=0;
 volatile unsigned int heaterCounterValue=0;
 ICACHE_RAM_ATTR void IntCallback()  {
+   Serial.println("itr");
   if(lastisr+5 < millis()){
     lastisr = millis();
     timerStateMachine=0;
@@ -23,6 +24,7 @@ ICACHE_RAM_ATTR void IntCallback()  {
   {
     lastisr = millis();
   }
+ 
 }
 
 ICACHE_RAM_ATTR void onTimerISR()  {
@@ -51,8 +53,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     c[length]='\0';
     sscanf(c,"%i",&precent);
     free(c);
-   /* Serial.println("-----------------------------");
-    Serial.println(topic);
+    Serial.println("-----------------------------");
+    /*Serial.println(topic);
     Serial.println(precent);
     Serial.println("-----------------------------");*/
     change_heating_speed(precent);
@@ -104,6 +106,7 @@ PubSubClient client(espClient);
 
 long lastMsg = 0;
 char msg[50];
+char msg1[50];
 int value = 0;
 
 void setup_wifi() {
@@ -147,7 +150,7 @@ void reconnect() {
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       // Wait 5 seconds before retrying
-      delay(5000);
+      delay(500);
     }
   }
 }
@@ -185,7 +188,7 @@ void loop() {
             float f = dht.readTemperature(true);
             // Check if any reads failed and exit early (to try again).
             if (isnan(h) || isnan(t) || isnan(f)) {
-           /*   Serial.println("Failed to read from DHT sensor!");*/
+           //   Serial.println("Failed to read from DHT sensor!");
               strcpy(celsiusTemp,"Failed");
               strcpy(fahrenheitTemp, "Failed");
               strcpy(humidityTemp, "Failed");         
@@ -198,7 +201,7 @@ void loop() {
               dtostrf(hif, 6, 2, fahrenheitTemp);         
               dtostrf(h, 6, 2, humidityTemp);
               // You can delete the following Serial.print's, it's just for debugging purposes
-           /*   Serial.print("Humidity: ");
+              Serial.print("Humidity: ");
               Serial.print(h);
               Serial.print(" %\t Temperature: ");
               Serial.print(t);
@@ -219,10 +222,9 @@ void loop() {
               Serial.print(hic);
               Serial.print(" *C ");
               Serial.print(hif);
-              Serial.println(" *F");*/
+              Serial.println(" *F");
             }
-            
-  
+              
         
     
     if(isnan(t)){
@@ -230,14 +232,22 @@ void loop() {
     }else{
       int homerseklet = (int)((t)*100);
       int nedv = (int)((h)*100);
-      sprintf (msg, "%i.%i %i.%i", homerseklet/100, (homerseklet%100),nedv/100, (nedv%100));
-      //sprintf (msg, "%i.%i", homerseklet/100, nedv/100);
+      sprintf (msg, "%i.%i",homerseklet/100, (homerseklet%100));
+      sprintf (msg1, "%i.%i",nedv/100, (nedv%100));
+      
+     // sprintf (msg, "%i.%i %i.%i", homerseklet/100, (homerseklet%100),nedv/100, (nedv%100));
+     // sprintf (msg, "%i.%i", homerseklet/100, nedv/100);
     }
- /*   Serial.print("Publish message: ");
-    Serial.println(msg);*/
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    Serial.print("Publish message: ");
+    Serial.println(msg1);
     client.publish("/home/temperature", msg);
-    for(int i =0; i< 500; i++){
+    client.publish("/home/humidity", msg1);
+  /*  for(int i =0; i< 500; i++){
       client.loop();
       delay(10);
-    }
+    }*/
+   delay(5000);
+ client.loop();
 }
